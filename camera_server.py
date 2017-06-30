@@ -2,8 +2,8 @@ from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 from SocketServer import ThreadingMixIn
 import time
 
-#from camera import Camera
-from camera_mock import CameraMock
+from camera import Camera
+#from camera_mock import CameraMock
 
 cam = None
 
@@ -58,8 +58,8 @@ class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
 
 def main():
     global cam
-    #cam = Camera()
-    cam = CameraMock()
+    cam = Camera()
+    #cam = CameraMock()
     server = ThreadedHTTPServer(('localhost', 8000), CameraHandler)
     server.serve_forever()
 
