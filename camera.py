@@ -1,6 +1,7 @@
 import Image
 import ctypes
 import logging
+import os
 from _ctypes import POINTER
 
 from cStringIO import StringIO
@@ -35,9 +36,8 @@ GP_CAPTURE_IMAGE = 0
 GP_CAPTURE_MOVIE = 1
 GP_CAPTURE_SOUND = 2
 # CameraFileType enum in 'gphoto2-file.h'
-GP_FILE_TYPE_NORMAL = 1
 GP_FILE_TYPE_PREVIEW = 2
-GP_FILE_TYPE_NORMAL = 3
+GP_FILE_TYPE_NORMAL = 1
 GP_FILE_TYPE_RAW = 4
 GP_FILE_TYPE_AUDIO = 5
 GP_FILE_TYPE_EXIF = 6
@@ -71,7 +71,7 @@ class Camera:
             self.enable_canon_capture(1)
 
     def disconnect(self):
-        if self.camera != None
+        if self.camera != None:
             gp.gp_camera_exit(self.camera, self.context)
             gp.gp_camera_unref(self.camera)
             self.camera = None
@@ -108,7 +108,7 @@ class Camera:
                                               self.preview_file,
                                               self.context)
         if retval != GP_OK:
-            logging.error('preview capture error %s', retval)
+            # logging.error('preview capture error %s', retval)
             return None
 
         data = ctypes.c_void_p();
@@ -152,19 +152,24 @@ class Camera:
         retval = gp.gp_camera_capture(self.camera,
                                       GP_CAPTURE_IMAGE,
                                       ctypes.byref(cam_path),
-                                      context)
+                                      self.context)
 
         if retval != GP_OK:
             logging.error('Unable to capture')
+            logging.error(retval)
             return
         else:
             logging.debug("Capture OK")
 
-        logging.debug('name = "%s"', cam_path.name)
-        logging.debug('folder = "%s"', cam_path.folder)
+        logging.info('name = "%s"', cam_path.name)
+        logging.info('folder = "%s"', cam_path.folder)
+
+        print cam_path.name
+        print cam_path.folder
+        
 
         filename = cam_path.name
-        full_filename = '/' + filename
+        full_filename = os.path.join('/home/pi/Projects/dslr-control/incoming', filename)
 
         logging.debug('Download to %s', full_filename)
         cam_file = ctypes.c_void_p()
@@ -175,11 +180,12 @@ class Camera:
                                        cam_path.name,
                                        GP_FILE_TYPE_NORMAL,
                                        cam_file,
-                                       context)
+                                       self.context)
 
         if retval != GP_OK:
             gp.gp_file_unref(cam_file)
             logging.error('Unable to download')
+            logging.error(retval)
             return
         else:
             logging.debug("Download complete")        
@@ -188,7 +194,7 @@ class Camera:
         if True:
             logging.debug('Delete file on camera')
             retval = gp.gp_camera_file_delete(self.camera, 
-                            cam_path.folder, cam_path.name, context)
+                            cam_path.folder, cam_path.name, self.context)
             if retval != GP_OK:
                 logging.error('Error while deleting from camera')
             else:
