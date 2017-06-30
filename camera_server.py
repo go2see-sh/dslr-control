@@ -2,12 +2,13 @@ from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 from SocketServer import ThreadingMixIn
 import time
 
-from camera import Camera
+#from camera import Camera
+from camera_mock import CameraMock
 
 cam = None
 
 
-class CameraResource(BaseHTTPRequestHandler):
+class CameraHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path.endswith('disconnect'):
             cam.disconnect()
@@ -16,7 +17,7 @@ class CameraResource(BaseHTTPRequestHandler):
             cam.connect()
             self.wfile.write('connect')
         elif self.path.endswith('capture'):
-            self.capture()
+            cam.capture()
             self.wfile.write('capture')
         elif self.path.endswith('enableliveview'):
             cam.enable_liveview()
@@ -35,9 +36,6 @@ class CameraResource(BaseHTTPRequestHandler):
             self.wfile.write('</body></html>')
         else:
             self.wfile.write("Test")
-
-    def capture(self):
-        cam.capture()
 
     def preview(self):
         self.send_response(200)
@@ -60,8 +58,9 @@ class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
 
 def main():
     global cam
-    cam = Camera()
-    server = ThreadedHTTPServer(('localhost', 8000), CameraResource)
+    #cam = Camera()
+    cam = CameraMock()
+    server = ThreadedHTTPServer(('localhost', 8000), CameraHandler)
     server.serve_forever()
 
 if __name__ == "__main__":

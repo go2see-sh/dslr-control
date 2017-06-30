@@ -13,28 +13,40 @@ gp.gp_context_new.restype = ctypes.c_void_p
 # gphoto2-result.h
 # gphoto constants
 GP_OK = 0
-GP_ERROR = -1 #generic error
-GP_ERROR_BAD_PARAMETERS = -2 #bad parameters passed
-GP_ERROR_NO_MEMORY = -3 # out of memory
-GP_ERROR_LIBRARY = -4 # error in camera driver
-GP_ERROR_UNKNOWN_PORT = -5 #unknown libgphoto2 port passed
-GP_ERROR_NOT_SUPPORTED = -6 #whatever you tried isn't supported
-GP_ERROR_IO = -7 # Generic I/O error - there's a surprise
-GP_ERROR_FIXED_LIMIT_EXCEEDED = -8 # internal buffer overflow
-GP_ERROR_TIMEOUT = -10 #timeout - no prizes for guessing that one
-GP_ERROR_IO_SUPPORTED_SERIAL = -20 #Serial port not supported
-GP_ERROR_IO_SUPPORTED_USB = -21 #USB ports not supported
-GP_ERROR_IO_INIT = -31 #Unable to init I/O
-GP_ERROR_IO_READ = -34 # I/O Error during read
-GP_ERROR_IO_WRITE = -35 # I/O Error during write
-GP_ERROR_IO_UPDATE = -37 #I/O during update of settings
-GP_ERROR_IO_SERIAL_SPEED = -41 # Serial speed not possible
-GP_ERROR_IO_USB_CLEAR_HALT = -51 #Error
+GP_ERROR = -1
+GP_ERROR_BAD_PARAMETERS = -2 
+GP_ERROR_NO_MEMORY = -3
+GP_ERROR_LIBRARY = -4
+GP_ERROR_UNKNOWN_PORT = -5
+GP_ERROR_NOT_SUPPORTED = -6
+GP_ERROR_IO = -7
+GP_ERROR_FIXED_LIMIT_EXCEEDED = -8
+GP_ERROR_TIMEOUT = -10
+GP_ERROR_IO_SUPPORTED_SERIAL = -20
+GP_ERROR_IO_SUPPORTED_USB = -21
+GP_ERROR_IO_INIT = -31
+GP_ERROR_IO_READ = -34
+GP_ERROR_IO_WRITE = -35
+GP_ERROR_IO_UPDATE = -37
+GP_ERROR_IO_SERIAL_SPEED = -41
+GP_ERROR_IO_USB_CLEAR_HALT = -51
 # CameraCaptureType enum in 'gphoto2-camera.h'
 GP_CAPTURE_IMAGE = 0
+GP_CAPTURE_MOVIE = 1
+GP_CAPTURE_SOUND = 2
 # CameraFileType enum in 'gphoto2-file.h'
 GP_FILE_TYPE_NORMAL = 1
+GP_FILE_TYPE_PREVIEW = 2
+GP_FILE_TYPE_NORMAL = 3
+GP_FILE_TYPE_RAW = 4
+GP_FILE_TYPE_AUDIO = 5
+GP_FILE_TYPE_EXIF = 6
+GP_FILE_TYPE_METADATA = 7
 
+
+class CameraFilePath(ctypes.Structure):
+    _fields_ = [('name', (ctypes.c_char * 128)),
+                ('folder', (ctypes.c_char * 1024))]
 
 class Camera:
 
@@ -56,16 +68,17 @@ class Camera:
             print "Unable to connect"
         else:
             print "Camera connected"
-            self.set_canon_capture(1)
+            self.enable_canon_capture(1)
 
     def disconnect(self):
-
-        gp.gp_camera_exit(self.camera, self.context)
-        gp.gp_camera_unref(self.camera)
+        if self.camera != None
+            gp.gp_camera_exit(self.camera, self.context)
+            gp.gp_camera_unref(self.camera)
+            self.camera = None
 
         print "Disconnected"
 
-    def set_canon_capture(self, enabled):
+    def enable_canon_capture(self, enabled):
         try:
             config = Config(self)
             widget = config.get_root_widget().get_child_by_name('capture')
@@ -87,16 +100,8 @@ class Camera:
 
     def preview(self):
 
-        """Connect and capture a preview frame.
-
-        Return the preview as a(data, length) tuple pointing to a memory
-        area containing a jpeg-compressed image. The data poiner is only valid
-        until the next call to preview().
-        Preview can fail for short periods. If you get None back, try again
-        later.
-        """
-
         self.connect()
+        self.enable_liveview()
 
         logging.debug('** camera preview')
         retval = gp.gp_camera_capture_preview(self.camera,
@@ -130,8 +135,6 @@ class Camera:
 
             #2
             #res = ctypes.cast(data, POINTER(ctypes.c_ubyte * (1056 * 704 * 4))).contents
-            #print(length.value)
-            #print(res)
             #print(data.value)
             #im = Image.frombuffer('L', (1056, 704), res, 'raw', 'L', 0, 1)
             #im.show() # segmentation violation??
@@ -141,3 +144,53 @@ class Camera:
             logging.error('failed')
 
         return data, length.value
+
+    def capture(self):
+        self.connect()
+
+        cam_path = CameraFilePath()
+        retval = gp.gp_camera_capture(self.camera,
+                                      GP_CAPTURE_IMAGE,
+                                      ctypes.byref(cam_path),
+                                      context)
+
+        if retval != GP_OK:
+            logging.error('Unable to capture')
+            return
+        else:
+            logging.debug("Capture OK")
+
+        logging.debug('name = "%s"', cam_path.name)
+        logging.debug('folder = "%s"', cam_path.folder)
+
+        filename = cam_path.name
+        full_filename = '/' + filename
+
+        logging.debug('Download to %s', full_filename)
+        cam_file = ctypes.c_void_p()
+        fd = os.open(full_filename, os.O_CREAT | os.O_WRONLY)
+        gp.gp_file_new_from_fd(ctypes.byref(cam_file), fd)
+        retval = gp.gp_camera_file_get(self.camera,
+                                       cam_path.folder,
+                                       cam_path.name,
+                                       GP_FILE_TYPE_NORMAL,
+                                       cam_file,
+                                       context)
+
+        if retval != GP_OK:
+            gp.gp_file_unref(cam_file)
+            logging.error('Unable to download')
+            return
+        else:
+            logging.debug("Download complete")        
+
+        # Delete if configured
+        if True:
+            logging.debug('Delete file on camera')
+            retval = gp.gp_camera_file_delete(self.camera, 
+                            cam_path.folder, cam_path.name, context)
+            if retval != GP_OK:
+                logging.error('Error while deleting from camera')
+            else:
+                logging.debug("Deletion from camera completed")
+            gp.gp_file_unref(cam_file)
