@@ -2,6 +2,7 @@ import Image
 import ctypes
 import logging
 import os
+import threading
 from _ctypes import POINTER
 
 from cStringIO import StringIO
@@ -51,6 +52,7 @@ class CameraFilePath(ctypes.Structure):
 class Camera:
 
     def __init__(self):
+        self.lock = threading.Lock()
         self.camera = None
         self.preview_file = ctypes.c_void_p()
         self.context = ctypes.c_void_p(gp.gp_context_new())
@@ -65,10 +67,11 @@ class Camera:
         gp.gp_camera_new(ctypes.byref(self.camera))
         retval = gp.gp_camera_init(self.camera, self.context)
         if retval != GP_OK:
-            print "Unable to connect"
+            logger.error("Unable to connect")
         else:
             print "Camera connected"
             self.enable_canon_capture(1)
+            self.set_capture_mode(1)
 
     def disconnect(self):
         if self.camera != None:
@@ -86,6 +89,17 @@ class Camera:
             config.set_config()
         except:
             pass
+        
+    def set_capture_mode(self, mode):
+        try:
+            config = Config(self)
+            widget = config.get_root_widget().get_child_by_name('capturetarget')
+            choises = widget.get_choices()
+            if mode < len(choises):
+                widget.set_value(choises[mode])
+                config.set_config()
+        except:
+            pass
 
     def is_liveview_enabled(self):
         return self.liveview_enabled
@@ -99,8 +113,8 @@ class Camera:
         return
 
     def preview(self):
-
         self.connect()
+        #lock.acquire()
         self.enable_liveview()
 
         logging.debug('** camera preview')
@@ -124,30 +138,23 @@ class Camera:
                       data.value, length.value)
 
         try:
-            #1
             # see effbot.org/imagingbook/introduction.html#more-on-reading-images
             res = ctypes.cast(data, POINTER(ctypes.c_ubyte * length.value)).contents
             file_jpgdata = StringIO(res)
             #im = Image.open(file_jpgdata)
             #im.show()
             data = file_jpgdata
-
-
-            #2
-            #res = ctypes.cast(data, POINTER(ctypes.c_ubyte * (1056 * 704 * 4))).contents
-            #print(data.value)
-            #im = Image.frombuffer('L', (1056, 704), res, 'raw', 'L', 0, 1)
-            #im.show() # segmentation violation??
-            logging.info('skip')
         except Exception as ex:
             print(ex)
             logging.error('failed')
 
+        #lock.release()
         return data, length.value
 
     def capture(self):
         self.connect()
 
+        #lock.acquire()
         cam_path = CameraFilePath()
         retval = gp.gp_camera_capture(self.camera,
                                       GP_CAPTURE_IMAGE,
