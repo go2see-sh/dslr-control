@@ -67,9 +67,9 @@ class Camera:
         gp.gp_camera_new(ctypes.byref(self.camera))
         retval = gp.gp_camera_init(self.camera, self.context)
         if retval != GP_OK:
-            logger.error("Unable to connect")
+            logger.error('Unable to connect %s', retval)
         else:
-            print "Camera connected"
+            print 'Camera connected'
             self.enable_canon_capture(1)
             self.set_capture_mode(1)
 
@@ -78,8 +78,7 @@ class Camera:
             gp.gp_camera_exit(self.camera, self.context)
             gp.gp_camera_unref(self.camera)
             self.camera = None
-
-        print "Disconnected"
+        print 'Disconnected'
 
     def enable_canon_capture(self, enabled):
         try:
@@ -113,97 +112,98 @@ class Camera:
         return
 
     def preview(self):
-        self.connect()
-        #lock.acquire()
-        self.enable_liveview()
-
-        logging.debug('** camera preview')
-        retval = gp.gp_camera_capture_preview(self.camera,
-                                              self.preview_file,
-                                              self.context)
-        if retval != GP_OK:
-            # logging.error('preview capture error %s', retval)
-            return None
-
-        data = ctypes.c_void_p();
-        length = ctypes.c_ulong();
-        retval = gp.gp_file_get_data_and_size(self.preview_file,
-                                              ctypes.byref(data),
-                                              ctypes.byref(length))
-        if retval != GP_OK or data.value is None:
-            logging.error('preview fetch error %s', retval)
-            return None
-
-        logging.debug('preview: frame at addr %d, length %d',
-                      data.value, length.value)
-
         try:
-            # see effbot.org/imagingbook/introduction.html#more-on-reading-images
-            res = ctypes.cast(data, POINTER(ctypes.c_ubyte * length.value)).contents
-            file_jpgdata = StringIO(res)
-            #im = Image.open(file_jpgdata)
-            #im.show()
-            data = file_jpgdata
-        except Exception as ex:
-            print(ex)
-            logging.error('failed')
+            self.lock.acquire()
+            self.enable_liveview()
 
-        #lock.release()
-        return data, length.value
+            logging.debug('** camera preview')
+            retval = gp.gp_camera_capture_preview(self.camera,
+                                                  self.preview_file,
+                                                  self.context)
+            if retval != GP_OK:
+                # logging.error('preview capture error %s', retval)
+                return None
+
+            data = ctypes.c_void_p();
+            length = ctypes.c_ulong();
+            retval = gp.gp_file_get_data_and_size(self.preview_file,
+                                                  ctypes.byref(data),
+                                                  ctypes.byref(length))
+            if retval != GP_OK or data.value is None:
+                logging.error('preview fetch error %s', retval)
+                return None
+
+            logging.debug('preview: frame at addr %d, length %d',
+                          data.value, length.value)
+
+            try:
+                # see effbot.org/imagingbook/introduction.html#more-on-reading-images
+                res = ctypes.cast(data, POINTER(ctypes.c_ubyte * length.value)).contents
+                file_jpgdata = StringIO(res)
+                #im = Image.open(file_jpgdata)
+                #im.show()
+                data = file_jpgdata
+            except Exception as ex:
+                #print(ex)
+                logging.error('failed')
+
+            #lock.release()
+            return data, length.value
+        finally:
+            self.lock.release()        
 
     def capture(self):
-        self.connect()
+        try:
+            self.lock.acquire()
+            cam_path = CameraFilePath()
+            retval = gp.gp_camera_capture(self.camera,
+                                          GP_CAPTURE_IMAGE,
+                                          ctypes.byref(cam_path),
+                                          self.context)
 
-        #lock.acquire()
-        cam_path = CameraFilePath()
-        retval = gp.gp_camera_capture(self.camera,
-                                      GP_CAPTURE_IMAGE,
-                                      ctypes.byref(cam_path),
-                                      self.context)
-
-        if retval != GP_OK:
-            logging.error('Unable to capture')
-            logging.error(retval)
-            return
-        else:
-            logging.debug("Capture OK")
-
-        logging.info('name = "%s"', cam_path.name)
-        logging.info('folder = "%s"', cam_path.folder)
-
-        print cam_path.name
-        print cam_path.folder
-        
-
-        filename = cam_path.name
-        full_filename = os.path.join('/home/pi/Projects/dslr-control/incoming', filename)
-
-        logging.debug('Download to %s', full_filename)
-        cam_file = ctypes.c_void_p()
-        fd = os.open(full_filename, os.O_CREAT | os.O_WRONLY)
-        gp.gp_file_new_from_fd(ctypes.byref(cam_file), fd)
-        retval = gp.gp_camera_file_get(self.camera,
-                                       cam_path.folder,
-                                       cam_path.name,
-                                       GP_FILE_TYPE_NORMAL,
-                                       cam_file,
-                                       self.context)
-
-        if retval != GP_OK:
-            gp.gp_file_unref(cam_file)
-            logging.error('Unable to download')
-            logging.error(retval)
-            return
-        else:
-            logging.debug("Download complete")        
-
-        # Delete if configured
-        if True:
-            logging.debug('Delete file on camera')
-            retval = gp.gp_camera_file_delete(self.camera, 
-                            cam_path.folder, cam_path.name, self.context)
             if retval != GP_OK:
-                logging.error('Error while deleting from camera')
+                logging.error('Unable to capture %s', retval)
+                return
             else:
-                logging.debug("Deletion from camera completed")
-            gp.gp_file_unref(cam_file)
+                logging.debug("Capture OK")
+
+            logging.info('name = "%s"', cam_path.name)
+            logging.info('folder = "%s"', cam_path.folder)
+
+            print cam_path.name
+            print cam_path.folder
+            
+
+            filename = cam_path.name
+            full_filename = os.path.join(os.getcwd(), 'incoming', filename)
+
+            logging.debug('Download to %s', full_filename)
+            cam_file = ctypes.c_void_p()
+            fd = os.open(full_filename, os.O_CREAT | os.O_WRONLY)
+            gp.gp_file_new_from_fd(ctypes.byref(cam_file), fd)
+            retval = gp.gp_camera_file_get(self.camera,
+                                           cam_path.folder,
+                                           cam_path.name,
+                                           GP_FILE_TYPE_NORMAL,
+                                           cam_file,
+                                           self.context)
+
+            if retval != GP_OK:
+                gp.gp_file_unref(cam_file)
+                logging.error('Unable to download %s', retval)
+                return
+            else:
+                logging.debug("Download complete")        
+
+            # Delete if configured
+            if False:
+                logging.debug('Delete file on camera')
+                retval = gp.gp_camera_file_delete(self.camera, 
+                                cam_path.folder, cam_path.name, self.context)
+                if retval != GP_OK:
+                    logging.error('Error while deleting from camera %s', retval)
+                else:
+                    logging.debug("Deletion from camera completed")
+                gp.gp_file_unref(cam_file)
+        finally:
+            self.lock.release()

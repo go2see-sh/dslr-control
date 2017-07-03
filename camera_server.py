@@ -27,7 +27,7 @@ class CameraHandler(BaseHTTPRequestHandler):
             self.wfile.write('disableliveview')
         elif self.path.endswith('preview'):
             self.preview()
-        elif self.path.endswith('test'):
+        elif self.path.endswith('liveview'):
             self.send_response(200)
             self.send_header('Content-Type', 'text/html')
             self.end_headers()
@@ -35,7 +35,7 @@ class CameraHandler(BaseHTTPRequestHandler):
             self.wfile.write('<img src="http://localhost:8000/preview" />')
             self.wfile.write('</body></html>')
         else:
-            self.wfile.write("Test")
+            self.wfile.write("unknown cmd")
 
     def preview(self):
         self.send_response(200)
@@ -53,12 +53,13 @@ class CameraHandler(BaseHTTPRequestHandler):
 
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
-    """Test"""
+    """Server startup"""
 
 
 def main():
     global cam
     cam = Camera()
+    cam.connect()
     #cam = CameraMock()
     server = ThreadedHTTPServer(('localhost', 8000), CameraHandler)
     server.serve_forever()
