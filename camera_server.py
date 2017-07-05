@@ -1,6 +1,7 @@
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 from SocketServer import ThreadingMixIn
 import time
+import json
 
 from camera import Camera
 #from camera_mock import CameraMock
@@ -9,6 +10,22 @@ cam = None
 
 
 class CameraHandler(BaseHTTPRequestHandler):
+    def do_POST(self):
+        content_length = int(self.headers.getheader('content-length', 0))
+        post_body = self.rfile.read(content_length).decode('utf-8')
+        config = json.loads(post_body)
+        value = config['value']
+        print config
+        print post_body
+        print value
+
+        if self.path.endswith('shutterspeed'):
+            cam.set_shutter(value)
+        elif self.path.endswith('aperture'):
+            cam.set_aperture(value)
+        elif self.path.endswith('iso'):
+            cam.set_iso(value)
+    
     def do_GET(self):
         if self.path.endswith('disconnect'):
             cam.disconnect()
@@ -27,6 +44,12 @@ class CameraHandler(BaseHTTPRequestHandler):
             self.wfile.write('disableliveview')
         elif self.path.endswith('preview'):
             self.preview()
+        elif self.path.endswith('shutterspeed'):
+            self.get_config_widget(cam.get_shutterspeed())
+        elif self.path.endswith('aperture'):
+            self.get_config_widget(cam.get_aperture())
+        elif self.path.endswith('iso'):
+            self.get_config_widget(cam.get_iso())
         elif self.path.endswith('liveview'):
             self.send_response(200)
             self.send_header('Content-Type', 'text/html')
@@ -36,6 +59,13 @@ class CameraHandler(BaseHTTPRequestHandler):
             self.wfile.write('</body></html>')
         else:
             self.wfile.write("unknown cmd")
+
+    def get_config_widget(self, widget):
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        res = json.dumps({'type': widget.get_name(), 'options': widget.get_choices(), 'value': widget.get_value()})
+        self.wfile.write(res)
 
     def preview(self):
         self.send_response(200)

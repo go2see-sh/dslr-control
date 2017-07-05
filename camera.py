@@ -3,9 +3,10 @@ import ctypes
 import logging
 import os
 import threading
-from _ctypes import POINTER
 
+from _ctypes import POINTER
 from cStringIO import StringIO
+
 from config import Config
 
 gp = ctypes.CDLL('libgphoto2.so.6')
@@ -49,6 +50,8 @@ class CameraFilePath(ctypes.Structure):
     _fields_ = [('name', (ctypes.c_char * 128)),
                 ('folder', (ctypes.c_char * 1024))]
 
+
+# http://gphoto.org/doc/remote/
 class Camera:
 
     def __init__(self):
@@ -67,17 +70,18 @@ class Camera:
         gp.gp_camera_new(ctypes.byref(self.camera))
         retval = gp.gp_camera_init(self.camera, self.context)
         if retval != GP_OK:
-            logger.error('Unable to connect %s', retval)
+            logging.error('Unable to connect %s', retval)
         else:
             print 'Camera connected'
             self.enable_canon_capture(1)
-            self.set_capture_mode(1)
+            self.set_capture_mode('Memory card') # save on camera sdcard
 
     def disconnect(self):
         if self.camera != None:
             gp.gp_camera_exit(self.camera, self.context)
             gp.gp_camera_unref(self.camera)
             self.camera = None
+            self.enable_canon_capture(0)
         print 'Disconnected'
 
     def enable_canon_capture(self, enabled):
@@ -88,18 +92,65 @@ class Camera:
             config.set_config()
         except:
             pass
-        
-    def set_capture_mode(self, mode):
+
+    def get_config_widget(self, name):
         try:
             config = Config(self)
-            widget = config.get_root_widget().get_child_by_name('capturetarget')
+            return (config, config.get_root_widget().get_child_by_name(name))
+        except:
+            pass
+
+    def set_config_widget_value(self, name, value):
+        try:
+            (config, widget) = self.get_config_widget(name)
             choises = widget.get_choices()
-            if mode < len(choises):
-                widget.set_value(choises[mode])
+            if value in choises:
+                widget.set_value(value)
+                config.set_config()
+        except Exception as ex:
+            print ex
+            pass
+
+    def set_config_widget_value_by_index(self, name, index):
+        try:
+            (config, widget) = self.get_config_widget(name)
+            choises = widget.get_choices()
+            if index < len(choises) and index > -1:
+                widget.set_value(choises[index])
                 config.set_config()
         except:
             pass
 
+    def get_config_widget_options(self, name):
+        try:
+            widget = self.get_config_widget(name)
+            print widget.get_choices()
+            return widget.get_choices()
+        except Exception as ex:
+            print(ex)
+            pass
+        
+    def set_capture_mode(self, mode):
+        self.set_config_widget_value('capturetarget', mode)
+
+    def set_shutterspeed(self, value):
+        self.set_config_widget_value('shutterspeed', value)
+
+    def get_shutterspeed(self):
+        return self.get_config_widget('shutterspeed')
+
+    def set_aperture(self, value):
+        self.set_config_widget_value('aperture', value)
+
+    def get_aperture(self):
+        return self.get_config_widget('aperture')
+   
+    def set_iso(self, value):
+        self.set_config_widget_value('iso', value)
+
+    def get_iso(self):
+        return self.get_config_widget('iso')
+ 
     def is_liveview_enabled(self):
         return self.liveview_enabled
 
