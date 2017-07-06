@@ -7,6 +7,7 @@ import threading
 from _ctypes import POINTER
 from cStringIO import StringIO
 
+from camera_preset import CameraPreset
 from config import Config
 
 gp = ctypes.CDLL('libgphoto2.so.6')
@@ -150,6 +151,11 @@ class Camera:
 
     def get_iso(self):
         return self.get_config_widget('iso')
+    
+    def apply_preset(self, preset):
+        self.set_shutterspeed(preset.shutterspeed)
+        self.set_aperture(preset.aperture)
+        self.set_iso(preset.iso)
  
     def is_liveview_enabled(self):
         return self.liveview_enabled

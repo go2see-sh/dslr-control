@@ -294,5 +294,8 @@ class Config:
 
         for child in widget.get_children():
             self.prettyprint(fp, child, indent + 2)
+            
+    def json(self):
+        return {'type': self.get_name(), 'options': self.get_choices(), 'value': self.get_value()}
 
 
