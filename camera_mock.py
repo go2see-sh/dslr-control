@@ -1,5 +1,8 @@
 import Image
 import logging
+import os
+import io
+from io import BytesIO
 
 from camera_preset import CameraPreset
 
@@ -54,7 +57,13 @@ class CameraMock:
 
     def preview(self):
         self.enable_liveview()
-        return None
+        data = None;
+        length = 0;
+        filename = os.path.join(os.getcwd(), 'mock', 'IMG_1038.JPG')
+        with io.open(filename, 'rb') as f:
+            data = BytesIO(f.read())
+            length = f.tell()
+        return data, length
 
     def capture(self):
         filename = 'test.jpg';

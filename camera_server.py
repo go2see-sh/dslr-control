@@ -3,8 +3,8 @@ from SocketServer import ThreadingMixIn
 import time
 import json
 
-from camera import Camera
-#from camera_mock import CameraMock
+#from camera import Camera
+from camera_mock import CameraMock
 import camera_preset
 from camera_preset import CameraPreset
 
@@ -26,31 +26,35 @@ class CameraHandler(BaseHTTPRequestHandler):
         data = json.loads(post_body)
 
         if self.path.endswith('shutterspeed'):
-            cam.set_shutter(data['value'])
+            cam.set_shutterspeed(data['value'])
+            self.ok('saved')
         elif self.path.endswith('aperture'):
             cam.set_aperture(data['value'])
+            self.ok('saved')
         elif self.path.endswith('iso'):
             cam.set_iso(data['value'])
+            self.ok('saved')
         elif self.path.endswith('preset'):
             camera_preset = CameraPreset(data['presetname'])
             cam.apply_preset(camera_preset)
+            self.ok('saved')
     
     def do_GET(self):
         if self.path.endswith('disconnect'):
             cam.disconnect()
-            self.wfile.write('disconnect')
+            self.ok('disconnect')
         elif self.path.endswith('connect'):
             cam.connect()
-            self.wfile.write('connect')
+            self.ok('connect')
         elif self.path.endswith('capture'):
             cam.capture()
-            self.wfile.write('capture')
+            self.ok('capture')
         elif self.path.endswith('enableliveview'):
             cam.enable_liveview()
-            self.wfile.write('enableliveview')
+            self.ok('enableliveview')
         elif self.path.endswith('disableliveview'):
             cam.disable_liveview()
-            self.wfile.write('disableliveview')
+            self.ok('disableliveview')
         elif self.path.endswith('preview'):
             self.preview()
         elif self.path.endswith('shutterspeed'):
@@ -67,7 +71,7 @@ class CameraHandler(BaseHTTPRequestHandler):
             self.send_header('Content-Type', 'text/html')
             self.end_headers()
             self.wfile.write('<html><head></head></body>')
-            self.wfile.write('<img src="http://localhost:8000/preview" />')
+            self.wfile.write('<img src="/preview" />')
             self.wfile.write('</body></html>')
         elif self.path.endswith('presets'):
             self.write_json({'presets': camera_preset.find_all()})            
@@ -75,6 +79,18 @@ class CameraHandler(BaseHTTPRequestHandler):
             self.write_json(CameraPreset().json())
         else:
             self.wfile.write("unknown cmd")
+
+    def ok(self, text):
+        self.send_response(200)
+        self.allow_all_origin()
+        self.end_headers()
+        self.wfile.write(text)        
+
+    def error(self, text):
+        self.send_response(500)
+        self.allow_all_origin()
+        self.end_headers()
+        self.wfile.write(text) 
 
     def write_json(self, json_data):
         self.send_response(200)
@@ -109,10 +125,10 @@ class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
 
 def main():
     global cam
-    cam = Camera()
-    #cam = CameraMock()
+    #cam = Camera()
+    cam = CameraMock()
     cam.connect()
-    server = ThreadedHTTPServer(('localhost', 8000), CameraHandler)
+    server = ThreadedHTTPServer(('0.0.0.0', 8000), CameraHandler)
     server.serve_forever()
 
 if __name__ == "__main__":

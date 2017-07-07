@@ -145,19 +145,19 @@ class Camera:
         self.set_config_widget_value('shutterspeed', value)
 
     def get_shutterspeed(self):
-        return self.get_config_widget('shutterspeed')
+        return self.get_config_widget('shutterspeed')[1]
 
     def set_aperture(self, value):
         self.set_config_widget_value('aperture', value)
 
     def get_aperture(self):
-        return self.get_config_widget('aperture')
+        return self.get_config_widget('aperture')[1]
    
     def set_iso(self, value):
         self.set_config_widget_value('iso', value)
 
     def get_iso(self):
-        return self.get_config_widget('iso')
+        return self.get_config_widget('iso')[1]
     
     def apply_preset(self, preset):
         self.set_shutterspeed(preset.shutterspeed)
