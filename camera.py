@@ -103,6 +103,7 @@ class Camera:
 
     def set_config_widget_value(self, name, value):
         try:
+            self.lock.acquire()
             (config, widget) = self.get_config_widget(name)
             choises = widget.get_choices()
             if value in choises:
@@ -110,26 +111,32 @@ class Camera:
                 config.set_config()
         except Exception as ex:
             print ex
-            pass
+        finally:
+            self.lock.release()
 
     def set_config_widget_value_by_index(self, name, index):
         try:
+            self.lock.acquire()
             (config, widget) = self.get_config_widget(name)
             choises = widget.get_choices()
             if index < len(choises) and index > -1:
                 widget.set_value(choises[index])
                 config.set_config()
-        except:
-            pass
+        except Exception as ex:
+            print ex
+        finally:
+            self.lock.release()
 
     def get_config_widget_options(self, name):
         try:
+            self.lock.acquire()
             widget = self.get_config_widget(name)
             print widget.get_choices()
             return widget.get_choices()
         except Exception as ex:
             print(ex)
-            pass
+        finally:
+            self.lock.release()
         
     def set_capture_mode(self, mode):
         self.set_config_widget_value('capturetarget', mode)

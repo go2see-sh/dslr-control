@@ -3,8 +3,8 @@ from SocketServer import ThreadingMixIn
 import time
 import json
 
-#from camera import Camera
-from camera_mock import CameraMock
+from camera import Camera
+#from camera_mock import CameraMock
 import camera_preset
 from camera_preset import CameraPreset
 
@@ -12,6 +12,14 @@ cam = None
 
 
 class CameraHandler(BaseHTTPRequestHandler):
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.allow_all_origin()
+        self.send_header('Access-Control-Allow-Headers', 'content-type')
+        self.send_header('Access-Control-Allow-Method', 'POST')
+        self.end_headers()
+        self.wfile.write('{}')
+    
     def do_POST(self):
         content_length = int(self.headers.getheader('content-length', 0))
         post_body = self.rfile.read(content_length).decode('utf-8')
@@ -55,6 +63,7 @@ class CameraHandler(BaseHTTPRequestHandler):
             self.write_json({'shutterspeed': cam.get_shutterspeed().json(), 'aperture': cam.get_aperture().json(), 'iso': cam.get_iso().json()})
         elif self.path.endswith('liveview'):
             self.send_response(200)
+            self.allow_all_origin()
             self.send_header('Content-Type', 'text/html')
             self.end_headers()
             self.wfile.write('<html><head></head></body>')
@@ -69,13 +78,18 @@ class CameraHandler(BaseHTTPRequestHandler):
 
     def write_json(self, json_data):
         self.send_response(200)
+        self.allow_all_origin()
         self.send_header('Content-Type', 'application/json')
         self.end_headers()
         res = json.dumps(json_data)
         self.wfile.write(res)
 
+    def allow_all_origin(self):
+        self.send_header('Access-Control-Allow-Origin', '*')
+
     def preview(self):
         self.send_response(200)
+        self.allow_all_origin()
         self.send_header('Content-Type', 'multipart/x-mixed-replace; boundary=--jpgboundary')
         self.end_headers()
         while cam.is_liveview_enabled():
@@ -95,8 +109,8 @@ class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
 
 def main():
     global cam
-    #cam = Camera()
-    cam = CameraMock()
+    cam = Camera()
+    #cam = CameraMock()
     cam.connect()
     server = ThreadedHTTPServer(('localhost', 8000), CameraHandler)
     server.serve_forever()
