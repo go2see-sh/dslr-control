@@ -3,8 +3,8 @@ from SocketServer import ThreadingMixIn
 import time
 import json
 
-from camera import Camera
-#from camera_mock import CameraMock
+#from camera import Camera
+from camera_mock import CameraMock
 import camera_preset
 from camera_preset import CameraPreset
 
@@ -26,7 +26,7 @@ class CameraHandler(BaseHTTPRequestHandler):
         data = json.loads(post_body)
 
         if self.path.endswith('shutterspeed'):
-            cam.set_shutter(data['value'])
+            cam.set_shutterspeed(data['value'])
         elif self.path.endswith('aperture'):
             cam.set_aperture(data['value'])
         elif self.path.endswith('iso'):
@@ -34,6 +34,10 @@ class CameraHandler(BaseHTTPRequestHandler):
         elif self.path.endswith('preset'):
             camera_preset = CameraPreset(data['presetname'])
             cam.apply_preset(camera_preset)
+            
+        self.send_response(200)
+        self.allow_all_origin()
+        self.wfile.write('{}')
     
     def do_GET(self):
         if self.path.endswith('disconnect'):
@@ -109,8 +113,8 @@ class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
 
 def main():
     global cam
-    cam = Camera()
-    #cam = CameraMock()
+    #cam = Camera()
+    cam = CameraMock()
     cam.connect()
     server = ThreadedHTTPServer(('localhost', 8000), CameraHandler)
     server.serve_forever()
