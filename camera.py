@@ -3,6 +3,7 @@ import ctypes
 import logging
 import os
 import threading
+import cv2
 
 from _ctypes import POINTER
 from cStringIO import StringIO
@@ -62,6 +63,7 @@ class Camera:
         self.context = ctypes.c_void_p(gp.gp_context_new())
         gp.gp_file_new(ctypes.byref(self.preview_file))
         self.liveview_enabled = False
+        self.focuspeak_enabled = False
 
     def connect(self):
         if self.camera is not None:
@@ -175,6 +177,14 @@ class Camera:
         self.liveview_enabled = False
         return
 
+    def enable_focuspeak(self):
+        self.focuspeak_enabled = True
+        return
+
+    def disable_focuspeak(self):
+        self.focuspeak_enabled = False
+        return
+
     def preview(self):
         try:
             self.lock.acquire()
@@ -206,6 +216,21 @@ class Camera:
                 file_jpgdata = StringIO(res)
                 #im = Image.open(file_jpgdata)
                 #im.show()
+
+                if self.focuspeak_enabled:
+                    # do something
+                    im = cv2.imdecode(res, cv2.CV_LOAD_IMAGE_COLOR)
+                    gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
+                    blur = cv2.GaussianBlur(gray, (5, 5), 0)
+                    canny = cv2.Canny(blur, 0, 150)
+
+                    redIm = np.zeros(im.shape, im.dtype)
+                    redIm[:,:] = (0,0,255)
+
+                    redMask = cv2.bitwise_and(redIm, redIm, mask=canny)
+                    cv2.addWeighted(redMask, 1, im, 1, 0, im)
+                    retval, file_jpgdate = cv2.imencode('.jpg', im);
+                
                 data = file_jpgdata
             except Exception as ex:
                 #print(ex)

@@ -8,6 +8,7 @@ class CameraMock:
     def __init__(self):
         self.camera = None
         self.liveview_enabled = False
+        self.focuspeak_enabled = False
 
     def connect(self):
         if self.camera is not None:
@@ -52,8 +53,19 @@ class CameraMock:
         self.liveview_enabled = False
         return
 
+    def enable_focuspeak(self):
+        self.focuspeak_enabled = True
+        return
+
+    def disable_focuspeak(self):
+        self.focuspeak_enabled = False
+        return
+
     def preview(self):
         self.enable_liveview()
+
+        if self.focuspeak_enabled:
+            # do something
         return None
 
     def capture(self):
