@@ -4,6 +4,7 @@ import logging
 import os
 import threading
 import cv2
+import numpy as np
 
 from _ctypes import POINTER
 from cStringIO import StringIO
@@ -213,27 +214,31 @@ class Camera:
             try:
                 # see effbot.org/imagingbook/introduction.html#more-on-reading-images
                 res = ctypes.cast(data, POINTER(ctypes.c_ubyte * length.value)).contents
-                file_jpgdata = StringIO(res)
-                #im = Image.open(file_jpgdata)
-                #im.show()
-
-                if self.focuspeak_enabled:
-                    # do something
-                    im = cv2.imdecode(res, cv2.CV_LOAD_IMAGE_COLOR)
+                file_jpgdata = None
+                
+                if self.focuspeak_enabled is False:
+                    file_jpgdata = StringIO(res)
+                else:
+                    img_buffer=np.asarray(bytearray(res), dtype=np.uint8)
+                    im = cv2.imdecode(img_buffer, cv2.CV_LOAD_IMAGE_COLOR)
                     gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
                     blur = cv2.GaussianBlur(gray, (5, 5), 0)
                     canny = cv2.Canny(blur, 0, 150)
 
-                    redIm = np.zeros(im.shape, im.dtype)
-                    redIm[:,:] = (0,0,255)
+                    colorIm = np.zeros(im.shape, im.dtype)
+                    colorIm[:,:] = (255,0,255)
 
-                    redMask = cv2.bitwise_and(redIm, redIm, mask=canny)
-                    cv2.addWeighted(redMask, 1, im, 1, 0, im)
-                    retval, file_jpgdate = cv2.imencode('.jpg', im);
+                    colorMask = cv2.bitwise_and(colorIm, colorIm, mask=canny)
+                    cv2.addWeighted(colorMask, 1, im, 1, 0, im)
+                    retval, im2 = cv2.imencode('.jpg', im)
+                    file_jpgdata = StringIO(im2.tostring())
+                    
+                #im = Image.open(file_jpgdata)
+                #im.show()
                 
                 data = file_jpgdata
             except Exception as ex:
-                #print(ex)
+                print(ex)
                 logging.error('failed')
 
             #lock.release()

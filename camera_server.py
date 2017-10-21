@@ -3,8 +3,8 @@ from SocketServer import ThreadingMixIn
 import time
 import json
 
-#from camera import Camera
-from camera_mock import CameraMock
+from camera import Camera
+#from camera_mock import CameraMock
 import camera_preset
 from camera_preset import CameraPreset
 
@@ -57,6 +57,12 @@ class CameraHandler(BaseHTTPRequestHandler):
             self.ok('disableliveview')
         elif self.path.endswith('preview'):
             self.preview()
+        elif self.path.endswith('enablefocuspeak'):
+            cam.enable_focuspeak()
+            self.ok('enablefocuspeak')
+        elif self.path.endswith('disablefocuspeak'):
+            cam.disable_focuspeak()
+            self.ok('disablefocuspeak')
         elif self.path.endswith('shutterspeed'):
             self.write_json(cam.get_shutterspeed().json())
         elif self.path.endswith('aperture'):
@@ -125,8 +131,8 @@ class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
 
 def main():
     global cam
-    #cam = Camera()
-    cam = CameraMock()
+    cam = Camera()
+    #cam = CameraMock()
     cam.connect()
     server = ThreadedHTTPServer(('0.0.0.0', 8000), CameraHandler)
     server.serve_forever()
